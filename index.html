@@ -22,15 +22,15 @@
 <body>
 <header><h1>📖 読書キャプチャ</h1><span class="count" id="counter">0 / 10 枚</span></header>
 <div class="stage" id="stage"><video id="camera" autoplay playsinline muted></video><div class="frame"></div><div class="center-guide"></div><div class="hint">見開きを入れて撮影（中央の青線は縦）</div><button id="stageShoot" class="stage-shoot" aria-label="カメラ画面から撮影" disabled>📷</button><div id="captureToast" class="capture-toast" role="status" aria-live="polite"></div></div>
-<div class="orientation-setting"><label for="portraitRotation">撮影画像の回転設定</label><select id="portraitRotation"><option value="0">回転しない（初期設定）</option><option value="90">右90°</option><option value="-90">左90°</option></select><span class="version">v2.7</span></div><div class="orientation-setting"><label for="cameraSelect">背面カメラ</label><select id="cameraSelect" disabled><option value="">起動後に選択</option></select><span class="version">v2.2</span></div><div class="camera-status" id="cameraStatus" aria-live="polite">カメラ未起動</div><div class="controls"><button id="start">カメラ起動</button><button class="shutter" id="shoot" aria-label="ページ撮影" disabled></button><button id="stop" disabled>停止</button></div>
+<div class="orientation-setting"><label for="portraitRotation">撮影画像の回転設定</label><select id="portraitRotation"><option value="0">回転しない（初期設定）</option><option value="90">右90°</option><option value="-90">左90°</option></select><span class="version">v2.7.1</span></div><div class="orientation-setting"><label for="cameraSelect">背面カメラ</label><select id="cameraSelect" disabled><option value="">起動後に選択</option></select><span class="version">v2.2</span></div><div class="camera-status" id="cameraStatus" aria-live="polite">カメラ未起動</div><div class="controls"><button id="start">カメラ起動</button><button class="shutter" id="shoot" aria-label="ページ撮影" disabled></button><button id="stop" disabled>停止</button></div>
 <div class="message" id="message" aria-live="polite">「カメラ起動」を押してください</div>
 <div class="actions"><button class="primary" id="share" disabled>画像をまとめて共有</button><button id="save" disabled>画像を保存</button><button id="clear" disabled>すべて削除</button><button id="info">使い方</button></div>
 <div class="thumbs" id="thumbs"></div>
 <section class="library-panel" aria-label="本ライブラリー">
 <h2>📚 本ライブラリー</h2>
 <label for="bookSelect">壁打ちする本</label><select id="bookSelect"><option value="">本を登録してください</option></select>
-<div class="book-actions"><button id="openBook" class="primary" disabled>指示文をコピーしてチャットへ</button><button id="addBook">＋ 本を登録</button><button id="editBook" disabled>本を編集</button><button id="deleteBook" disabled>登録を削除</button></div>
-<div id="bookEditor" hidden><label for="bookName">本のタイトル</label><input id="bookName" type="text" maxlength="100" placeholder="例：静かな時間の使い方"><label for="bookUrl">既存のChatGPTチャットURL</label><input id="bookUrl" type="url" autocomplete="off" spellcheck="false" placeholder="https://chatgpt.com/g/.../c/..."><div class="book-actions"><button id="cancelBook">キャンセル</button><button id="saveBook" class="primary">登録を保存</button></div></div>
+<div class="book-actions"><button id="openBook" class="primary" disabled>指示文をコピーしてリンクを開く</button><button id="addBook">＋ 本を登録</button><button id="editBook" disabled>本を編集</button><button id="deleteBook" disabled>登録を削除</button></div>
+<div id="bookEditor" hidden><label for="bookName">本のタイトル</label><input id="bookName" type="text" maxlength="100" placeholder="例：静かな時間の使い方"><label for="bookUrl">リンクURL（Webページ・チャットなど）</label><input id="bookUrl" type="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/"><div class="book-actions"><button id="cancelBook">キャンセル</button><button id="saveBook" class="primary">登録を保存</button></div></div>
 <p class="book-note">本の登録情報は、この端末のブラウザに保存します。画像は自動添付されません。写真アプリに画像を保存した後、チャットで貼り付け・添付してください。</p>
 </section>
 <footer>1セット10枚（見開きで約20ページ）。画像は端末内に自動一時保存しますが、ブラウザのデータ削除や容量不足などで消える可能性があります。写真アプリへの保存を必ず確認してください。撮影画像をサーバーに送信しません。</footer>
@@ -43,7 +43,7 @@ const BOOKS_KEY='readingCaptureBooksV27', SELECTED_BOOK_KEY='readingCaptureSelec
 const READ_INSTRUCTION='今回の読書で撮影した見開き画像を共有します。画像をページ番号順に読み取り、これまでの読書と対話の文脈を踏まえて理解してください。まだ要約・分析・質問や壁打ちは始めず、読み取ったページ範囲と判読できなかった重要な箇所だけ簡潔に教えてください。「壁打ち開始」と伝えたら対話を始めてください。';
 let books=[], editingBookId=null;
 function validChatURL(value){
- try{const u=new URL(value);return u.protocol==='https:'&&u.hostname==='chatgpt.com'&&(/^\/c\/[^/]+\/?$/.test(u.pathname)||/^\/g\/[^/]+\/c\/[^/]+\/?$/.test(u.pathname))?u.href:null;}catch(e){return null;}
+ try{const u=new URL(value);return (u.protocol==='https:'||u.protocol==='http:')?u.href:null;}catch(e){return null;}
 }
 function loadBooks(){try{const data=JSON.parse(localStorage.getItem(BOOKS_KEY)||'[]');books=Array.isArray(data)?data.filter(b=>b&&typeof b.id==='string'&&typeof b.name==='string'&&validChatURL(b.url)):[];}catch(e){books=[];}renderBooks();}
 function storeBooks(){localStorage.setItem(BOOKS_KEY,JSON.stringify(books));}
@@ -65,14 +65,14 @@ function hideBookEditor(){$('bookEditor').hidden=true;editingBookId=null;}
 function saveBookData(){
  const name=$('bookName').value.trim(),url=validChatURL($('bookUrl').value.trim());
  if(!name){alert('本のタイトルを入力してください');return;}
- if(!url){alert('自分の既存チャットURL（chatgpt.com/c/... または chatgpt.com/g/.../c/...）を登録してください。共有リンクは使用しません。');return;}
+ if(!url){alert('http:// または https:// で始まるリンクURLを登録してください。');return;}
  const before=books.slice();const id=editingBookId||('book-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7));
  const index=books.findIndex(b=>b.id===id);
  if(index>=0)books[index]={id,name,url};else books.push({id,name,url});
  try{storeBooks();localStorage.setItem(SELECTED_BOOK_KEY,id);$('bookSelect').value=id;hideBookEditor();renderBooks();msg('本ライブラリーに登録しました');}
  catch(e){books=before;alert('登録情報を保存できませんでした: '+e.message);}
 }
-function deleteBookData(){const b=currentBook();if(!b||!confirm('「'+b.name+'」の登録を削除しますか？ ChatGPTのチャット自体は削除されません。'))return;const before=books.slice();books=books.filter(x=>x.id!==b.id);try{storeBooks();localStorage.removeItem(SELECTED_BOOK_KEY);renderBooks();msg('本の登録を削除しました');}catch(e){books=before;renderBooks();alert('削除できませんでした: '+e.message);}}
+function deleteBookData(){const b=currentBook();if(!b||!confirm('「'+b.name+'」の登録を削除しますか？ リンク先のデータ自体は削除されません。'))return;const before=books.slice();books=books.filter(x=>x.id!==b.id);try{storeBooks();localStorage.removeItem(SELECTED_BOOK_KEY);renderBooks();msg('本の登録を削除しました');}catch(e){books=before;renderBooks();alert('削除できませんでした: '+e.message);}}
 async function openBookChat(){
  const b=currentBook();if(!b)return;
  const url=validChatURL(b.url);if(!url){alert('登録URLを確認してください');return;}
@@ -80,7 +80,7 @@ async function openBookChat(){
  try{await navigator.clipboard.writeText(READ_INSTRUCTION);copied=true;}catch(e){
   const t=document.createElement('textarea');t.value=READ_INSTRUCTION;t.style.position='fixed';t.style.left='-9999px';document.body.append(t);t.select();try{copied=document.execCommand('copy');}catch(err){}t.remove();
  }
- if(!copied){alert('指示文をコピーできませんでした。ブラウザのコピー許可を確認してください。チャットは開きません。');return;}
+ if(!copied){alert('指示文をコピーできませんでした。ブラウザのコピー許可を確認してください。リンクは開きません。');return;}
  try{localStorage.setItem(SELECTED_BOOK_KEY,b.id);}catch(e){}
  window.location.assign(url);
 }
