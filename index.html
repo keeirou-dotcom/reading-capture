@@ -22,16 +22,16 @@
 <body>
 <header><h1>📖 読書キャプチャ</h1><span class="count" id="counter">0 / 10 枚</span></header>
 <div class="stage" id="stage"><video id="camera" autoplay playsinline muted></video><div class="frame"></div><div class="center-guide"></div><div class="hint">見開きを入れて撮影（中央の青線は縦）</div><button id="stageShoot" class="stage-shoot" aria-label="カメラ画面から撮影" disabled>📷</button><div id="captureToast" class="capture-toast" role="status" aria-live="polite"></div></div>
-<div class="orientation-setting"><label for="portraitRotation">撮影画像の回転設定</label><select id="portraitRotation"><option value="0">回転しない（初期設定）</option><option value="90">右90°</option><option value="-90">左90°</option></select><span class="version">v2.8-test</span></div><div class="orientation-setting"><label for="cameraSelect">背面カメラ</label><select id="cameraSelect" disabled><option value="">起動後に選択</option></select><span class="version">v2.2</span></div><div class="camera-status" id="cameraStatus" aria-live="polite">カメラ未起動</div><div class="controls"><button id="start">カメラ起動</button><button class="shutter" id="shoot" aria-label="ページ撮影" disabled></button><button id="stop" disabled>停止</button></div>
+<div class="orientation-setting"><label for="portraitRotation">撮影画像の回転設定</label><select id="portraitRotation"><option value="0">回転しない（初期設定）</option><option value="90">右90°</option><option value="-90">左90°</option></select><span class="version">v2.8.1-test</span></div><div class="orientation-setting"><label for="cameraSelect">背面カメラ</label><select id="cameraSelect" disabled><option value="">起動後に選択</option></select><span class="version">v2.2</span></div><div class="camera-status" id="cameraStatus" aria-live="polite">カメラ未起動</div><div class="controls"><button id="start">カメラ起動</button><button class="shutter" id="shoot" aria-label="ページ撮影" disabled></button><button id="stop" disabled>停止</button></div>
 <div class="message" id="message" aria-live="polite">「カメラ起動」を押してください</div>
 <div class="actions"><button class="primary" id="shareWithText" disabled>画像＋指示文を共有【検証】</button><button id="share" disabled>画像だけ共有</button><button id="save" disabled>画像を保存</button><button id="clear" disabled>すべて削除</button><button id="info">使い方</button></div>
 <div class="thumbs" id="thumbs"></div>
 <section class="library-panel" aria-label="本ライブラリー">
 <h2>📚 本ライブラリー</h2>
 <label for="bookSelect">壁打ちする本</label><select id="bookSelect"><option value="">本を登録してください</option></select>
-<div class="book-actions"><button id="openBook" class="primary" disabled>指示文をコピーしてリンクを開く</button><button id="addBook">＋ 本を登録</button><button id="editBook" disabled>本を編集</button><button id="deleteBook" disabled>登録を削除</button></div>
+<div class="book-actions"><button id="copyImagesOpen" class="primary" disabled>画像をコピーしてリンクを開く【検証】</button><button id="copyInstruction">共通指示文をコピー</button><button id="openBook" disabled>指示文をコピーしてリンクを開く</button><button id="addBook">＋ 本を登録</button><button id="editBook" disabled>本を編集</button><button id="deleteBook" disabled>登録を削除</button></div>
 <div id="bookEditor" hidden><label for="bookName">本のタイトル</label><input id="bookName" type="text" maxlength="100" placeholder="例：静かな時間の使い方"><label for="bookUrl">リンクURL（Webページ・チャットなど）</label><input id="bookUrl" type="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/"><div class="book-actions"><button id="cancelBook">キャンセル</button><button id="saveBook" class="primary">登録を保存</button></div></div>
-<p class="book-note">本の登録情報は、この端末のブラウザに保存します。画像は自動添付されません。写真アプリに画像を保存した後、チャットで貼り付け・添付してください。</p>
+<p class="book-note">本の登録情報はこの端末に保存します。【検証】共有画面の「コピー」で画像をコピーし、リンク先で貼り付けてください。その後この画面に戻り「共通指示文をコピー」を押します。画像の自動添付・保存完了は保証されません。</p>
 </section>
 <footer>1セット10枚（見開きで約20ページ）。画像は端末内に自動一時保存しますが、ブラウザのデータ削除や容量不足などで消える可能性があります。写真アプリへの保存を必ず確認してください。撮影画像をサーバーに送信しません。</footer>
 <div id="preview"><div class="image-area" id="imageArea"><img id="large" alt="撮影画像の確認"></div><div class="preview-nav"><button id="prevPhoto">← 前へ</button><span id="photoPosition"></span><button id="nextPhoto">次へ →</button></div><div class="controls"><button id="closePreview">戻る</button><button id="rotateLeft">↶ 左90°</button><button id="rotateRight">↷ 右90°</button><button id="rotateFlip">180°反転</button><button id="zoom">拡大</button><button id="deleteOne">この画像を削除</button></div></div>
@@ -54,7 +54,7 @@ function renderBooks(){
  if(!books.length){const o=document.createElement('option');o.value='';o.textContent='まだ本が登録されていません';el.append(o);}
  books.forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.name;el.append(o);});
  if(books.some(b=>b.id===current))el.value=current;
- const available=!!currentBook();['openBook','editBook','deleteBook'].forEach(id=>$(id).disabled=!available);
+ const available=!!currentBook();['openBook','editBook','deleteBook'].forEach(id=>$(id).disabled=!available);$('copyImagesOpen').disabled=!available||!photos.length;
 }
 function showBookEditor(edit){
  const b=edit?currentBook():null;editingBookId=b?b.id:null;
@@ -73,6 +73,23 @@ function saveBookData(){
  catch(e){books=before;alert('登録情報を保存できませんでした: '+e.message);}
 }
 function deleteBookData(){const b=currentBook();if(!b||!confirm('「'+b.name+'」の登録を削除しますか？ リンク先のデータ自体は削除されません。'))return;const before=books.slice();books=books.filter(x=>x.id!==b.id);try{storeBooks();localStorage.removeItem(SELECTED_BOOK_KEY);renderBooks();msg('本の登録を削除しました');}catch(e){books=before;renderBooks();alert('削除できませんでした: '+e.message);}}
+async function copyInstructionOnly(){
+ let copied=false;
+ try{await navigator.clipboard.writeText(READ_INSTRUCTION);copied=true;}catch(e){
+  const t=document.createElement('textarea');t.value=READ_INSTRUCTION;t.style.position='fixed';t.style.left='-9999px';document.body.append(t);t.select();try{copied=document.execCommand('copy');}catch(err){}t.remove();
+ }
+ msg(copied?'共通指示文をコピーしました。チャットに貼り付けてください':'指示文をコピーできませんでした。Safariでお試しください');
+}
+async function copyImagesOpen(){
+ const book=currentBook();if(!book||!photos.length){msg('本を選択し、画像を撮影してください');return;}
+ if(!navigator.share||!navigator.canShare?.({files:files()})){msg('このiPhoneでは画像の一括コピーを呼び出せません');return;}
+ try{
+  await navigator.share({files:files(),title:'読書画像をコピー'});
+  if(!confirm('共有画面で「コピー」を押しましたか？\n「OK」で登録したリンクへ進みます。コピーできなかった場合は「キャンセル」。'))return;
+  try{localStorage.setItem(SELECTED_BOOK_KEY,book.id);}catch(e){}
+  window.location.assign(book.url);
+ }catch(e){if(e.name!=='AbortError')msg('画像のコピーに進めませんでした: '+e.message);}
+}
 async function openBookChat(){
  const b=currentBook();if(!b)return;
  const url=validChatURL(b.url);if(!url){alert('登録URLを確認してください');return;}
@@ -90,7 +107,7 @@ $('editBook').onclick=()=>showBookEditor(true);
 $('deleteBook').onclick=deleteBookData;
 $('saveBook').onclick=saveBookData;
 $('cancelBook').onclick=hideBookEditor;
-$('openBook').onclick=openBookChat;
+$('openBook').onclick=openBookChat;$('copyImagesOpen').onclick=copyImagesOpen;$('copyInstruction').onclick=copyInstructionOnly;
 loadBooks();
 
 let dbPromise;
@@ -100,7 +117,7 @@ let storageOK=true;
 function storageError(e){storageOK=false;msg('⚠ 端末内の自動一時保存に失敗しました。閉じる前に画像を写真へ保存してください：'+e.message);}
 async function restore(){try{const db=await openDB();const blobs=await new Promise((resolve,reject)=>{const tx=db.transaction('session','readonly');const q=tx.objectStore('session').get('photos');q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error);});if(!Array.isArray(blobs))throw Error('保存形式が不正です');photos=blobs.slice(0,10).filter(b=>b instanceof Blob).map(blob=>({blob,url:URL.createObjectURL(blob)}));update();msg(photos.length?'✓ 前回の画像を'+photos.length+'枚復元しました':'撮影するたびに画像を端末内へ自動一時保存します');}catch(e){storageError(e);}}
 let toastTimer;function feedback(){const el=$('captureToast'),stage=$('stage');el.textContent='✓ 撮影完了 '+photos.length+' / 10';el.classList.add('visible');stage.classList.remove('flash');void stage.offsetWidth;stage.classList.add('flash');clearTimeout(toastTimer);toastTimer=setTimeout(()=>{el.classList.remove('visible');stage.classList.remove('flash');},650);}function nav(){if(selected<0)return;$('photoPosition').textContent=(selected+1)+' / '+photos.length;$('prevPhoto').disabled=selected===0;$('nextPhoto').disabled=selected===photos.length-1;}function movePhoto(delta){if(selected<0||busy)return;const i=selected+delta;if(i>=0&&i<photos.length)show(i);}const cameraKey='readingCameraLabelV23';let deviceChoices=[];function labelCamera(d){return d.label||'カメラ';}function saveCameraChoice(){try{const d=deviceChoices.find(d=>d.deviceId===$('cameraSelect').value);if(d)localStorage.setItem(cameraKey,d.label);}catch(e){}}function selectedCameraStatus(){const d=deviceChoices.find(d=>d.deviceId===$('cameraSelect').value);$('cameraStatus').textContent='使用中: '+(d?labelCamera(d):'背面カメラ')+'（レンズ種別は表示名を参考に確認）';}try{const saved=localStorage.getItem('readingPortraitRotation');if(['0','90','-90'].includes(saved))$('portraitRotation').value=saved;}catch(e){}$('portraitRotation').onchange=()=>{try{localStorage.setItem('readingPortraitRotation',$('portraitRotation').value);}catch(e){}};
-function update(){ $('counter').textContent=photos.length+' / 10 枚（約'+(photos.length*2)+'ページ）'; ['shareWithText','share','save','clear'].forEach(id=>$(id).disabled=!photos.length);$('stageShoot').disabled=!stream||busy||photos.length>=10; $('thumbs').replaceChildren(); photos.forEach((p,i)=>{let b=document.createElement('button');b.className='thumb';b.setAttribute('aria-label',`${i+1}枚目を確認`);let img=document.createElement('img');img.src=p.url;let n=document.createElement('span');n.textContent=i+1;b.append(img,n);b.onclick=()=>show(i);$('thumbs').append(b);}); }
+function update(){ $('counter').textContent=photos.length+' / 10 枚（約'+(photos.length*2)+'ページ）'; ['shareWithText','share','save','clear'].forEach(id=>$(id).disabled=!photos.length);$('copyImagesOpen').disabled=!photos.length||!currentBook();$('stageShoot').disabled=!stream||busy||photos.length>=10; $('thumbs').replaceChildren(); photos.forEach((p,i)=>{let b=document.createElement('button');b.className='thumb';b.setAttribute('aria-label',`${i+1}枚目を確認`);let img=document.createElement('img');img.src=p.url;let n=document.createElement('span');n.textContent=i+1;b.append(img,n);b.onclick=()=>show(i);$('thumbs').append(b);}); }
 async function start(){try {if(!navigator.mediaDevices?.getUserMedia)throw new Error('HTTPSのサイトをSafariで開いてください');stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:2880},height:{ideal:2160},aspectRatio:{ideal:4/3},frameRate:{ideal:30}}});$('camera').srcObject=stream;await $('camera').play();$('start').disabled=true;$('stop').disabled=false;$('shoot').disabled=false;$('stageShoot').disabled=photos.length>=10;let track=stream.getVideoTracks()[0], s=track.getSettings();msg(`4:3優先｜実映像 ${s.width||'?'} × ${s.height||'?'}（比率 ${(s.width&&s.height?(s.width/s.height).toFixed(2):'?')}）`);await listCameras();}catch(e){msg('カメラを起動できません: '+e.message);}}
 async function listCameras(){
  try{
