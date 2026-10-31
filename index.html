@@ -50,7 +50,7 @@ function storeBooks(){localStorage.setItem(BOOKS_KEY,JSON.stringify(books));}
 function currentBook(){return books.find(b=>b.id===$('bookSelect').value);}
 function renderBooks(){
  const el=$('bookSelect');let selected='';try{selected=localStorage.getItem(SELECTED_BOOK_KEY)||'';}catch(e){}
- const current=el.value||selected;el.replaceChildren();
+ const current=selected||el.value;el.replaceChildren();
  if(!books.length){const o=document.createElement('option');o.value='';o.textContent='まだ本が登録されていません';el.append(o);}
  books.forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.name;el.append(o);});
  if(books.some(b=>b.id===current))el.value=current;
