@@ -22,7 +22,7 @@
 <body>
 <header><h1>📖 読書キャプチャ</h1><span class="count" id="counter">0 / 10 枚</span></header>
 <div class="stage" id="stage"><video id="camera" autoplay playsinline muted></video><div class="frame"></div><div class="center-guide"></div><div class="hint">見開きを入れて撮影（中央の青線は縦）</div><button id="stageShoot" class="stage-shoot" aria-label="カメラ画面から撮影" disabled>📷</button><div id="captureToast" class="capture-toast" role="status" aria-live="polite"></div></div>
-<div class="orientation-setting"><label for="portraitRotation">撮影画像の回転設定</label><select id="portraitRotation"><option value="0">回転しない（初期設定）</option><option value="90">右90°</option><option value="-90">左90°</option></select><span class="version">v2.10</span></div><div class="orientation-setting"><label for="cameraSelect">背面カメラ</label><select id="cameraSelect" disabled><option value="">起動後に選択</option></select><span class="version">v2.2</span></div><div class="camera-status" id="cameraStatus" aria-live="polite">カメラ未起動</div><div class="controls"><button id="start">カメラ起動</button><button class="shutter" id="shoot" aria-label="ページ撮影" disabled></button><button id="stop" disabled>停止</button></div>
+<div class="orientation-setting"><label for="portraitRotation">撮影画像の回転設定</label><select id="portraitRotation"><option value="0">回転しない（初期設定）</option><option value="90">右90°</option><option value="-90">左90°</option></select><span class="version">v2.11</span></div><div class="orientation-setting"><label for="cameraSelect">背面カメラ</label><select id="cameraSelect" disabled><option value="">起動後に選択</option></select><span class="version">v2.2</span></div><div class="camera-status" id="cameraStatus" aria-live="polite">カメラ未起動</div><div class="controls"><button id="start">カメラ起動</button><button class="shutter" id="shoot" aria-label="ページ撮影" disabled></button><button id="stop" disabled>停止</button></div>
 <div class="message" id="message" aria-live="polite">「カメラ起動」を押してください</div>
 <div class="thumbs" id="thumbs"></div>
 <div class="actions"><button class="primary" id="save" disabled>① 画像を保存する</button><button id="share" disabled>画像を共有する</button><button id="clear" disabled>すべて削除</button><button id="info">使い方</button></div>
@@ -33,8 +33,10 @@
 <h2>📚 本ライブラリー</h2>
 <label for="bookSelect">壁打ちする本</label><select id="bookSelect"><option value="">本を登録してください</option></select>
 <div class="book-actions"><button id="openBook" class="primary" disabled>③ 指示文をコピーしてリンクを開く</button><button id="addBook">＋ 本を登録</button><button id="editBook" disabled>本を編集</button><button id="deleteBook" disabled>登録を削除</button></div>
+<div class="book-actions"><button id="exportBooks">書籍一覧を書き出す</button><button id="importBooks">書籍一覧を読み込む</button></div>
+<input id="importBooksFile" type="file" accept=".json,application/json" hidden>
 <div id="bookEditor" hidden><label for="bookName">本のタイトル</label><input id="bookName" type="text" maxlength="100" placeholder="例：静かな時間の使い方"><label for="bookUrl">リンクURL（Webページ・チャットなど）</label><input id="bookUrl" type="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/"><div class="book-actions"><button id="cancelBook">キャンセル</button><button id="saveBook" class="primary">登録を保存</button></div></div>
-<p class="book-note">本の情報はこの端末に保存されます。保存・共有する画像に01/07などの順序番号を追加します。元画像は変更しません。画像を保存してチェックした後、登録先を開きます。指示文はコピーされるので、リンク先で貼り付け、画像は「＋」等から添付してください。</p>
+<p class="book-note">書籍一覧はブラウザごとに保存されます。機種変更・ホーム画面版への移行には「書き出す」「読み込む」を使ってください。保存・共有する画像に01/07などの順序番号を追加します。元画像は変更しません。画像を保存してチェックした後、登録先を開きます。指示文はコピーされるので、リンク先で貼り付け、画像は「＋」等から添付してください。</p>
 </section>
 <footer>1セット10枚（見開きで約20ページ）。画像は端末内に自動一時保存しますが、ブラウザのデータ削除や容量不足などで消える可能性があります。写真アプリへの保存を必ず確認してください。撮影画像をサーバーに送信しません。</footer>
 <div id="preview"><div class="image-area" id="imageArea"><img id="large" alt="撮影画像の確認"></div><div class="preview-nav"><button id="prevPhoto">← 前へ</button><span id="photoPosition"></span><button id="nextPhoto">次へ →</button></div><div class="controls"><button id="closePreview">戻る</button><button id="rotateLeft">↶ 左90°</button><button id="rotateRight">↷ 右90°</button><button id="rotateFlip">180°反転</button><button id="zoom">拡大</button><button id="deleteOne">この画像を削除</button></div></div>
@@ -50,6 +52,41 @@ function validChatURL(value){
 }
 function loadBooks(){try{const data=JSON.parse(localStorage.getItem(BOOKS_KEY)||'[]');books=Array.isArray(data)?data.filter(b=>b&&typeof b.id==='string'&&typeof b.name==='string'&&validChatURL(b.url)):[];}catch(e){books=[];}renderBooks();}
 function storeBooks(){localStorage.setItem(BOOKS_KEY,JSON.stringify(books));}
+function exportBookLibrary(){
+ if(!books.length){alert('書き出す本がありません');return;}
+ const payload={format:'reading-capture-library',version:1,exportedAt:new Date().toISOString(),books:books.map(({name,url})=>({name,url}))};
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+ const link=document.createElement('a');const href=URL.createObjectURL(blob);
+ link.href=href;link.download='reading-capture-library.json';document.body.append(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(href),60000);
+ msg('書籍一覧をファイルに書き出しました。iPhoneのダウンロード／ファイルアプリを確認してください');
+}
+async function importBookLibrary(file){
+ if(!file)return;
+ if(file.size>1024*1024){alert('ファイルが大きすぎます（1MB以下）。');return;}
+ try{
+  const payload=JSON.parse(await file.text());
+  if(!payload||payload.format!=='reading-capture-library'||payload.version!==1||!Array.isArray(payload.books))throw Error('読書キャプチャの書籍一覧ファイルではありません');
+  if(payload.books.length>500)throw Error('書籍数が多すぎます');
+  const incoming=payload.books.map(b=>{
+   if(!b||typeof b.name!=='string'||!b.name.trim()||b.name.length>100||typeof b.url!=='string'||!validChatURL(b.url))throw Error('登録情報に不正なタイトルまたはURLがあります');
+   return {name:b.name.trim(),url:validChatURL(b.url)};
+  });
+  let added=0,duplicates=0,conflicts=0;
+  const next=books.slice();
+  for(const b of incoming){
+   if(next.some(x=>x.name===b.name&&x.url===b.url)){duplicates++;continue;}
+   if(next.some(x=>x.name===b.name||x.url===b.url)){conflicts++;continue;}
+   next.push({id:'book-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10),...b});added++;
+  }
+  if(!added){alert('新たな登録はありません。重複 '+duplicates+'件、同名・同URLの競合 '+conflicts+'件（既存情報は変更していません）。');return;}
+  if(!confirm(added+'冊を追加します。\n重複 '+duplicates+'件、競合 '+conflicts+'件はスキップします。\n現在の本ライブラリーは上書きしません。よろしいですか？'))return;
+  const original=books;books=next;
+  try{storeBooks();renderBooks();msg('本ライブラリーに'+added+'冊追加しました');alert(added+'冊を読み込みました。元の登録もそのまま残っています。');}
+  catch(e){books=original;renderBooks();throw e;}
+ }catch(e){alert('読み込めませんでした：'+e.message);}
+}
+
 function currentBook(){return books.find(b=>b.id===$('bookSelect').value);}
 function renderBooks(){
  const el=$('bookSelect');let selected='';try{selected=localStorage.getItem(SELECTED_BOOK_KEY)||'';}catch(e){}
@@ -90,6 +127,9 @@ async function openBookChat(){
 }
 $('bookSelect').onchange=()=>{try{localStorage.setItem(SELECTED_BOOK_KEY,$('bookSelect').value);}catch(e){}renderBooks();};
 $('addBook').onclick=()=>showBookEditor(false);
+$('exportBooks').onclick=exportBookLibrary;
+$('importBooks').onclick=()=>$('importBooksFile').click();
+$('importBooksFile').onchange=async()=>{const file=$('importBooksFile').files?.[0];await importBookLibrary(file);$('importBooksFile').value='';};
 $('editBook').onclick=()=>showBookEditor(true);
 $('deleteBook').onclick=deleteBookData;
 $('saveBook').onclick=saveBookData;
