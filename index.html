@@ -22,7 +22,7 @@
 <body>
 <header><h1>📖 読書キャプチャ</h1><span class="count" id="counter">0 / 10 枚</span></header>
 <div class="stage" id="stage"><video id="camera" autoplay playsinline muted></video><div class="frame"></div><div class="center-guide"></div><div class="hint">見開きを入れて撮影（中央の青線は縦）</div><button id="stageShoot" class="stage-shoot" aria-label="カメラ画面から撮影" disabled>📷</button><div id="captureToast" class="capture-toast" role="status" aria-live="polite"></div></div>
-<div class="orientation-setting"><label for="portraitRotation">撮影画像の回転設定</label><select id="portraitRotation"><option value="0">回転しない（初期設定）</option><option value="90">右90°</option><option value="-90">左90°</option></select><span class="version">v2.9.1</span></div><div class="orientation-setting"><label for="cameraSelect">背面カメラ</label><select id="cameraSelect" disabled><option value="">起動後に選択</option></select><span class="version">v2.2</span></div><div class="camera-status" id="cameraStatus" aria-live="polite">カメラ未起動</div><div class="controls"><button id="start">カメラ起動</button><button class="shutter" id="shoot" aria-label="ページ撮影" disabled></button><button id="stop" disabled>停止</button></div>
+<div class="orientation-setting"><label for="portraitRotation">撮影画像の回転設定</label><select id="portraitRotation"><option value="0">回転しない（初期設定）</option><option value="90">右90°</option><option value="-90">左90°</option></select><span class="version">v2.10</span></div><div class="orientation-setting"><label for="cameraSelect">背面カメラ</label><select id="cameraSelect" disabled><option value="">起動後に選択</option></select><span class="version">v2.2</span></div><div class="camera-status" id="cameraStatus" aria-live="polite">カメラ未起動</div><div class="controls"><button id="start">カメラ起動</button><button class="shutter" id="shoot" aria-label="ページ撮影" disabled></button><button id="stop" disabled>停止</button></div>
 <div class="message" id="message" aria-live="polite">「カメラ起動」を押してください</div>
 <div class="thumbs" id="thumbs"></div>
 <div class="actions"><button class="primary" id="save" disabled>① 画像を保存する</button><button id="share" disabled>画像を共有する</button><button id="clear" disabled>すべて削除</button><button id="info">使い方</button></div>
@@ -34,7 +34,7 @@
 <label for="bookSelect">壁打ちする本</label><select id="bookSelect"><option value="">本を登録してください</option></select>
 <div class="book-actions"><button id="openBook" class="primary" disabled>③ 指示文をコピーしてリンクを開く</button><button id="addBook">＋ 本を登録</button><button id="editBook" disabled>本を編集</button><button id="deleteBook" disabled>登録を削除</button></div>
 <div id="bookEditor" hidden><label for="bookName">本のタイトル</label><input id="bookName" type="text" maxlength="100" placeholder="例：静かな時間の使い方"><label for="bookUrl">リンクURL（Webページ・チャットなど）</label><input id="bookUrl" type="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/"><div class="book-actions"><button id="cancelBook">キャンセル</button><button id="saveBook" class="primary">登録を保存</button></div></div>
-<p class="book-note">本の情報はこの端末に保存されます。画像を保存してチェックした後、登録先を開きます。指示文はコピーされるので、リンク先で貼り付け、画像は「＋」等から添付してください。</p>
+<p class="book-note">本の情報はこの端末に保存されます。保存・共有する画像に01/07などの順序番号を追加します。元画像は変更しません。画像を保存してチェックした後、登録先を開きます。指示文はコピーされるので、リンク先で貼り付け、画像は「＋」等から添付してください。</p>
 </section>
 <footer>1セット10枚（見開きで約20ページ）。画像は端末内に自動一時保存しますが、ブラウザのデータ削除や容量不足などで消える可能性があります。写真アプリへの保存を必ず確認してください。撮影画像をサーバーに送信しません。</footer>
 <div id="preview"><div class="image-area" id="imageArea"><img id="large" alt="撮影画像の確認"></div><div class="preview-nav"><button id="prevPhoto">← 前へ</button><span id="photoPosition"></span><button id="nextPhoto">次へ →</button></div><div class="controls"><button id="closePreview">戻る</button><button id="rotateLeft">↶ 左90°</button><button id="rotateRight">↷ 右90°</button><button id="rotateFlip">180°反転</button><button id="zoom">拡大</button><button id="deleteOne">この画像を削除</button></div></div>
@@ -43,7 +43,7 @@
 const $=id=>document.getElementById(id); let stream=null, photos=[], selected=-1, busy=false;
 const msg=t=>$('message').textContent=t;
 const BOOKS_KEY='readingCaptureBooksV27', SELECTED_BOOK_KEY='readingCaptureSelectedBookV27';
-const READ_INSTRUCTION='今回の読書で撮影した見開き画像を共有します。画像をページ番号順に読み取り、これまでの読書と対話の文脈を踏まえて理解してください。まだ要約・分析・質問や壁打ちは始めず、読み取ったページ範囲と判読できなかった重要な箇所だけ簡潔に教えてください。「壁打ち開始」と伝えたら対話を始めてください。';
+const READ_INSTRUCTION='今回の読書画像を共有します。各画像の左上にある「01/07」などの番号は、この送信内での画像順と総枚数を示します。添付画面の順番ではなく画像内の番号の小さい順に読み取ってください。日本語の縦書きは原則として右ページから左ページの順に読みます。番号は書籍のページ番号ではありません。今回の画像は、すでに宣言した読書範囲の一部または続きです。これまでに受け取った画像との連続性を考慮し、受領枚数を累計してください。今回の受領枚数、累計枚数、欠落・重複の疑いだけを簡潔に報告し、予定枚数を受領するまでは要約・分析・質問や壁打ちを開始しないでください。予定枚数がそろっても、私が「壁打ち開始」と伝えるまで待ってください。';
 let books=[], editingBookId=null;
 function validChatURL(value){
  try{const u=new URL(value);return (u.protocol==='https:'||u.protocol==='http:')?u.href:null;}catch(e){return null;}
@@ -144,9 +144,31 @@ function show(i){selected=i;$('large').classList.remove('zoomed');$('zoom').text
 async function rotate(deg){if(selected<0||busy)return;busy=true;try{const p=photos[selected],img=new Image();img.src=p.url;await img.decode();const canvas=document.createElement('canvas');const side=Math.abs(deg)===90;canvas.width=side?img.naturalHeight:img.naturalWidth;canvas.height=side?img.naturalWidth:img.naturalHeight;const ctx=canvas.getContext('2d',{alpha:false});ctx.translate(canvas.width/2,canvas.height/2);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-img.naturalWidth/2,-img.naturalHeight/2);const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',.94));if(!blob)throw new Error('回転処理に失敗');const url=URL.createObjectURL(blob);URL.revokeObjectURL(p.url);photos[selected]={blob,url};try{await persist(photos.map(p=>p.blob));storageOK=true;}catch(e){storageError(e);}$('large').src=url;$('large').classList.remove('zoomed');$('zoom').textContent='拡大';update();if(storageOK)msg('画像の回転を一時保存しました');}catch(e){msg('回転できません: '+e.message);}finally{busy=false;}}
 async function removeOne(){if(selected<0||busy)return;if(!confirm('この画像を削除しますか？'))return;busy=true;try{const next=photos.filter((_,i)=>i!==selected);await persist(next.map(p=>p.blob));const p=photos[selected];photos=next;storageOK=true;URL.revokeObjectURL(p.url);close();update();$('shoot').disabled=!stream;$('stageShoot').disabled=!stream;msg('画像を削除しました');}catch(e){storageError(e);alert('削除を確定できませんでした。画像は残しています。');}finally{busy=false;}}
 async function clear(){if(busy||!photos.length)return;if(!confirm(`${photos.length}枚を端末の一時保存からも削除します。写真への保存を確認しましたか？`))return;busy=true;try{await persist([]);photos.forEach(p=>URL.revokeObjectURL(p.url));photos=[];storageOK=true;update();$('shoot').disabled=!stream;$('stageShoot').disabled=!stream;msg('画像を削除しました。次の10枚を撮影できます');}catch(e){storageError(e);alert('削除できませんでした。画像は残しています。');}finally{busy=false;}}
-function files(){return photos.map((p,i)=>new File([p.blob],`reading-page-${String(i+1).padStart(3,'0')}.jpg`,{type:'image/jpeg'}));}
-async function share(){try{const f=files();if(!navigator.share||!navigator.canShare?.({files:f})){msg('この環境では一括共有できません。「画像を保存」を試してください');return;}await navigator.share({files:f,title:'読書ページ'});msg('共有画面を閉じました。ChatGPT側で画像を確認してください');}catch(e){if(e.name!=='AbortError')msg('共有できません: '+e.message);}}
-async function save(){try{const f=files();if(navigator.share&&navigator.canShare?.({files:f})){await navigator.share({files:f,title:'読書ページを保存'});msg('共有画面から「ファイルに保存」を選択してください');return;}for(let i=0;i<photos.length;i++){let a=document.createElement('a');a.href=photos[i].url;a.download=f[i].name;a.click();}msg('保存を開始しました。複数ファイルの保存は端末の制限で失敗する場合があります');}catch(e){if(e.name!=='AbortError')msg('保存できません: '+e.message);}}
+async function files(){
+ const total=photos.length, output=[];
+ for(let i=0;i<total;i++){
+  const photo=photos[i], img=new Image();
+  const source=URL.createObjectURL(photo.blob);
+  try{
+   await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error('画像を読み込めません'));img.src=source;});
+   const canvas=document.createElement('canvas');canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
+   const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw Error('画像加工に失敗');
+   ctx.drawImage(img,0,0);
+   const text=String(i+1).padStart(2,'0')+'/'+String(total).padStart(2,'0');
+   const size=Math.max(24,Math.round(Math.min(canvas.width,canvas.height)*.028));
+   ctx.font='bold '+size+'px sans-serif';ctx.textBaseline='top';
+   const pad=Math.round(size*.45),boxW=Math.ceil(ctx.measureText(text).width+pad*2),boxH=size+pad*2;
+   const x=Math.max(5,Math.round(canvas.width*.012)),y=Math.max(5,Math.round(canvas.height*.012));
+   ctx.fillStyle='rgba(12,25,42,.92)';ctx.fillRect(x,y,boxW,boxH);
+   ctx.fillStyle='#fff';ctx.fillText(text,x+pad,y+pad);
+   const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('保存画像を作れません')),'image/jpeg',.92));
+   output.push(new File([blob],'reading-'+String(i+1).padStart(2,'0')+'-of-'+String(total).padStart(2,'0')+'.jpg',{type:'image/jpeg'}));
+  }finally{URL.revokeObjectURL(source);}
+ }
+ return output;
+}
+async function share(){try{const f=await files();if(!navigator.share||!navigator.canShare?.({files:f})){msg('この環境では一括共有できません。「画像を保存」を試してください');return;}await navigator.share({files:f,title:'読書ページ'});msg('共有画面を閉じました。ChatGPT側で画像を確認してください');}catch(e){if(e.name!=='AbortError')msg('共有できません: '+e.message);}}
+async function save(){try{const f=await files();if(navigator.share&&navigator.canShare?.({files:f})){await navigator.share({files:f,title:'読書ページを保存'});msg('共有画面から「ファイルに保存」を選択してください');return;}for(let i=0;i<photos.length;i++){let a=document.createElement('a');a.href=photos[i].url;a.download=f[i].name;a.click();}msg('保存を開始しました。複数ファイルの保存は端末の制限で失敗する場合があります');}catch(e){if(e.name!=='AbortError')msg('保存できません: '+e.message);}}
 $('start').onclick=start;$('stop').onclick=stop;$('shoot').onclick=capture;$('stageShoot').onclick=capture;$('prevPhoto').onclick=()=>movePhoto(-1);$('nextPhoto').onclick=()=>movePhoto(1);$('share').onclick=share;$('save').onclick=save;$('clear').onclick=clear;$('closePreview').onclick=close;$('deleteOne').onclick=removeOne;$('rotateLeft').onclick=()=>rotate(-90);$('rotateRight').onclick=()=>rotate(90);$('rotateFlip').onclick=()=>rotate(180);$('zoom').onclick=()=>{const z=$('large').classList.toggle('zoomed');$('zoom').textContent=z?'縮小':'拡大';};$('info').onclick=()=>alert('①カメラ起動→背面カメラを切替可能なら選択 ②下の白丸または映像内の📷で撮影。成功時に短く通知。10枚まで ③選択したカメラを次回も優先します。カメラ名だけで超広角とは断定できないので画角を確認してください。通常は回転せず保存し、必要に応じて回転してください ④サムネイルをタップして前へ・次へ、拡大・回転・削除 ④「画像を保存」して写真アプリ等に保存 ⑤保存を確認して「すべて削除」で次の10枚へ。写真に保存した後、保存確認にチェックして本ライブラリーからリンクを開き、画像はリンク先の添付操作で追加してください。');window.addEventListener('pagehide',()=>{if(stream)stop();});restore();
 </script>
 </body></html>
