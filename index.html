@@ -6,22 +6,93 @@
 <link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon.png">
 <title>読書キャプチャ</title>
 <style>
-:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif}*{box-sizing:border-box}body{margin:0;background:#101924;color:white}header{padding:calc(env(safe-area-inset-top) + 14px) 18px 12px;background:#142539;display:flex;align-items:center;justify-content:space-between}h1{margin:0;font-size:19px}.count{color:#c5e0fa;font-size:14px}.stage{position:relative;background:#000;width:100%;height:48dvh;min-height:260px;overflow:hidden;display:flex;align-items:center;justify-content:center}video{height:100%;width:100%;object-fit:contain}.frame{position:absolute;width:95%;height:91%;border:2px solid #ffffffaa;border-radius:10px;pointer-events:none}.center-guide{position:absolute;left:50%;top:7%;height:86%;border-left:2px dashed #53b5ff;pointer-events:none;opacity:.95}.hint{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:max-content;max-width:92%;text-align:center;background:#000b;padding:7px 10px;border-radius:15px;font-size:12px;pointer-events:none;z-index:2}button{border:0;border-radius:13px;font-size:16px;font-weight:600;padding:14px 16px;background:#314258;color:white}button:disabled{opacity:.45}button.primary{background:#2675c9}button.shutter{width:76px;height:76px;background:white;border:6px solid #2470c0;border-radius:50%;padding:0}button.shutter:active{transform:scale(.94)}.controls{display:flex;align-items:center;justify-content:space-around;gap:10px;padding:14px 12px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px 12px}.actions button{min-height:49px}.message{min-height:28px;padding:0 16px 8px;font-size:13px;color:#b5d3f5}.thumbs{display:flex;overflow-x:auto;gap:9px;padding:4px 14px 16px;min-height:100px}.thumb{position:relative;flex:0 0 72px;height:98px;border-radius:7px;overflow:hidden;background:#354251;border:2px solid transparent;padding:0}.thumb.selected{border-color:#65b5ff}.thumb img{width:100%;height:100%;object-fit:cover}.thumb span{position:absolute;left:2px;top:2px;background:#000a;border-radius:3px;font-size:11px;padding:2px 4px}footer{color:#8999aa;font-size:11px;padding:0 16px 24px;line-height:1.5}#preview{position:fixed;inset:0;background:#000e;z-index:10;display:none;flex-direction:column;padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}#preview.visible{display:flex}#preview .image-area{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;touch-action:pan-x pan-y}#preview img{max-width:100%;max-height:100%;object-fit:contain}#preview img.zoomed{max-width:none;max-height:none;width:200%;height:auto}#preview .controls{flex-wrap:wrap}#preview .controls button{flex:1 1 28%;white-space:nowrap}#preview .controls{margin-top:auto}#preview button{font-size:14px}#fileFallback{display:none}.stage-shoot{position:absolute;left:50%;transform:translateX(-50%);bottom:9px;z-index:3;width:62px;height:62px;padding:0;border:3px solid #8ac3ff;border-radius:50%;background:#fffffff0;color:#15355a;font-size:27px;box-shadow:0 2px 12px #0008}.stage-shoot:active{transform:translateX(-50%) scale(.95)}.capture-toast{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);background:#19364fee;padding:14px 22px;border:2px solid #80ddb0;border-radius:14px;z-index:5;font-weight:700;pointer-events:none;opacity:0;transition:opacity .1s;white-space:nowrap}.capture-toast.visible{opacity:1}.stage.flash:after{content:'';position:absolute;inset:0;border:5px solid #fff;pointer-events:none;z-index:4;animation:shotFlash .3s ease-out both}@keyframes shotFlash{from{opacity:1}to{opacity:0}}.preview-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px}.preview-nav span{color:#c5e0fa;font-size:14px}.preview-nav button{flex:1}.camera-status{font-size:12px;color:#b9dcff;padding:5px 15px;background:#15263a}.orientation-setting{display:flex;align-items:center;gap:9px;padding:9px 14px;background:#1b2b3e;font-size:12px}.orientation-setting select{flex:1;min-width:0;background:#314258;color:white;border:1px solid #627a95;border-radius:8px;padding:9px 4px;font-size:12px}.version{color:#8fbdf4}
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif}*{box-sizing:border-box}body{margin:0;background:#101924;color:white}header{padding:calc(env(safe-area-inset-top) + 14px) 18px 12px;background:#142539;display:flex;align-items:center;justify-content:space-between}h1{margin:0;font-size:19px}.count{color:#c5e0fa;font-size:14px}.stage{position:relative;background:#000;width:100%;height:48dvh;min-height:260px;overflow:hidden;display:flex;align-items:center;justify-content:center}video{height:100%;width:100%;object-fit:contain}.frame{position:absolute;width:95%;height:91%;border:2px solid #ffffffaa;border-radius:10px;pointer-events:none}.center-guide{position:absolute;left:50%;top:7%;height:86%;border-left:2px dashed #53b5ff;pointer-events:none;opacity:.95}.hint{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:max-content;max-width:92%;text-align:center;background:#000b;padding:7px 10px;border-radius:15px;font-size:12px;pointer-events:none;z-index:2}button{border:0;border-radius:13px;font-size:16px;font-weight:600;padding:14px 16px;background:#314258;color:white}button:disabled{opacity:.45}button.primary{background:#2675c9}button.shutter{width:76px;height:76px;background:white;border:6px solid #2470c0;border-radius:50%;padding:0}button.shutter:active{transform:scale(.94)}.controls{display:flex;align-items:center;justify-content:space-around;gap:10px;padding:14px 12px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px 12px}.actions button{min-height:49px}.message{min-height:28px;padding:0 16px 8px;font-size:13px;color:#b5d3f5}.thumbs{display:flex;overflow-x:auto;gap:9px;padding:4px 14px 16px;min-height:100px}.thumb{position:relative;flex:0 0 72px;height:98px;border-radius:7px;overflow:hidden;background:#354251;border:2px solid transparent;padding:0}.thumb.selected{border-color:#65b5ff}.thumb img{width:100%;height:100%;object-fit:cover}.thumb span{position:absolute;left:2px;top:2px;background:#000a;border-radius:3px;font-size:11px;padding:2px 4px}footer{color:#8999aa;font-size:11px;padding:0 16px 24px;line-height:1.5}#preview{position:fixed;inset:0;background:#000e;z-index:10;display:none;flex-direction:column;padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}#preview.visible{display:flex}#preview .image-area{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;touch-action:pan-x pan-y}#preview img{max-width:100%;max-height:100%;object-fit:contain}#preview img.zoomed{max-width:none;max-height:none;width:200%;height:auto}#preview .controls{flex-wrap:wrap}#preview .controls button{flex:1 1 28%;white-space:nowrap}#preview .controls{margin-top:auto}#preview button{font-size:14px}#fileFallback{display:none}
+.library-panel{margin:10px 14px 14px;padding:14px;background:#1b2e44;border:1px solid #425b78;border-radius:14px}
+.library-panel h2{font-size:17px;margin:0 0 10px}.library-panel label{display:block;font-size:12px;color:#c8d9ef;margin:10px 0 5px}
+.library-panel select,.library-panel input{width:100%;padding:12px;background:#30465f;color:white;border:1px solid #8196ae;border-radius:9px;font-size:15px}
+.library-panel .book-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.library-panel .book-actions button{font-size:14px;padding:11px 6px}
+.library-panel .book-note{font-size:12px;color:#b9d3ed;line-height:1.5;margin:9px 0 0}
+#bookEditor{margin-top:12px;border-top:1px solid #4b6681;padding-top:8px}
+#bookEditor[hidden]{display:none}
+#bookEditor .book-actions{grid-template-columns:1fr 1fr}
+.stage-shoot{position:absolute;left:50%;transform:translateX(-50%);bottom:9px;z-index:3;width:62px;height:62px;padding:0;border:3px solid #8ac3ff;border-radius:50%;background:#fffffff0;color:#15355a;font-size:27px;box-shadow:0 2px 12px #0008}.stage-shoot:active{transform:translateX(-50%) scale(.95)}.capture-toast{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);background:#19364fee;padding:14px 22px;border:2px solid #80ddb0;border-radius:14px;z-index:5;font-weight:700;pointer-events:none;opacity:0;transition:opacity .1s;white-space:nowrap}.capture-toast.visible{opacity:1}.stage.flash:after{content:'';position:absolute;inset:0;border:5px solid #fff;pointer-events:none;z-index:4;animation:shotFlash .3s ease-out both}@keyframes shotFlash{from{opacity:1}to{opacity:0}}.preview-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px}.preview-nav span{color:#c5e0fa;font-size:14px}.preview-nav button{flex:1}.camera-status{font-size:12px;color:#b9dcff;padding:5px 15px;background:#15263a}.orientation-setting{display:flex;align-items:center;gap:9px;padding:9px 14px;background:#1b2b3e;font-size:12px}.orientation-setting select{flex:1;min-width:0;background:#314258;color:white;border:1px solid #627a95;border-radius:8px;padding:9px 4px;font-size:12px}.version{color:#8fbdf4}
 </style>
 </head>
 <body>
 <header><h1>📖 読書キャプチャ</h1><span class="count" id="counter">0 / 10 枚</span></header>
 <div class="stage" id="stage"><video id="camera" autoplay playsinline muted></video><div class="frame"></div><div class="center-guide"></div><div class="hint">見開きを入れて撮影（中央の青線は縦）</div><button id="stageShoot" class="stage-shoot" aria-label="カメラ画面から撮影" disabled>📷</button><div id="captureToast" class="capture-toast" role="status" aria-live="polite"></div></div>
-<div class="orientation-setting"><label for="portraitRotation">撮影画像の回転設定</label><select id="portraitRotation"><option value="0">回転しない（初期設定）</option><option value="90">右90°</option><option value="-90">左90°</option></select><span class="version">v2.6</span></div><div class="orientation-setting"><label for="cameraSelect">背面カメラ</label><select id="cameraSelect" disabled><option value="">起動後に選択</option></select><span class="version">v2.2</span></div><div class="camera-status" id="cameraStatus" aria-live="polite">カメラ未起動</div><div class="controls"><button id="start">カメラ起動</button><button class="shutter" id="shoot" aria-label="ページ撮影" disabled></button><button id="stop" disabled>停止</button></div>
+<div class="orientation-setting"><label for="portraitRotation">撮影画像の回転設定</label><select id="portraitRotation"><option value="0">回転しない（初期設定）</option><option value="90">右90°</option><option value="-90">左90°</option></select><span class="version">v2.7</span></div><div class="orientation-setting"><label for="cameraSelect">背面カメラ</label><select id="cameraSelect" disabled><option value="">起動後に選択</option></select><span class="version">v2.2</span></div><div class="camera-status" id="cameraStatus" aria-live="polite">カメラ未起動</div><div class="controls"><button id="start">カメラ起動</button><button class="shutter" id="shoot" aria-label="ページ撮影" disabled></button><button id="stop" disabled>停止</button></div>
 <div class="message" id="message" aria-live="polite">「カメラ起動」を押してください</div>
 <div class="actions"><button class="primary" id="share" disabled>画像をまとめて共有</button><button id="save" disabled>画像を保存</button><button id="clear" disabled>すべて削除</button><button id="info">使い方</button></div>
 <div class="thumbs" id="thumbs"></div>
+<section class="library-panel" aria-label="本ライブラリー">
+<h2>📚 本ライブラリー</h2>
+<label for="bookSelect">壁打ちする本</label><select id="bookSelect"><option value="">本を登録してください</option></select>
+<div class="book-actions"><button id="openBook" class="primary" disabled>指示文をコピーしてチャットへ</button><button id="addBook">＋ 本を登録</button><button id="editBook" disabled>本を編集</button><button id="deleteBook" disabled>登録を削除</button></div>
+<div id="bookEditor" hidden><label for="bookName">本のタイトル</label><input id="bookName" type="text" maxlength="100" placeholder="例：静かな時間の使い方"><label for="bookUrl">既存のChatGPTチャットURL</label><input id="bookUrl" type="url" autocomplete="off" spellcheck="false" placeholder="https://chatgpt.com/g/.../c/..."><div class="book-actions"><button id="cancelBook">キャンセル</button><button id="saveBook" class="primary">登録を保存</button></div></div>
+<p class="book-note">本の登録情報は、この端末のブラウザに保存します。画像は自動添付されません。写真アプリに画像を保存した後、チャットで貼り付け・添付してください。</p>
+</section>
 <footer>1セット10枚（見開きで約20ページ）。画像は端末内に自動一時保存しますが、ブラウザのデータ削除や容量不足などで消える可能性があります。写真アプリへの保存を必ず確認してください。撮影画像をサーバーに送信しません。</footer>
 <div id="preview"><div class="image-area" id="imageArea"><img id="large" alt="撮影画像の確認"></div><div class="preview-nav"><button id="prevPhoto">← 前へ</button><span id="photoPosition"></span><button id="nextPhoto">次へ →</button></div><div class="controls"><button id="closePreview">戻る</button><button id="rotateLeft">↶ 左90°</button><button id="rotateRight">↷ 右90°</button><button id="rotateFlip">180°反転</button><button id="zoom">拡大</button><button id="deleteOne">この画像を削除</button></div></div>
 <script>
 'use strict';
 const $=id=>document.getElementById(id); let stream=null, photos=[], selected=-1, busy=false;
 const msg=t=>$('message').textContent=t;
+const BOOKS_KEY='readingCaptureBooksV27', SELECTED_BOOK_KEY='readingCaptureSelectedBookV27';
+const READ_INSTRUCTION='今回の読書で撮影した見開き画像を共有します。画像をページ番号順に読み取り、これまでの読書と対話の文脈を踏まえて理解してください。まだ要約・分析・質問や壁打ちは始めず、読み取ったページ範囲と判読できなかった重要な箇所だけ簡潔に教えてください。「壁打ち開始」と伝えたら対話を始めてください。';
+let books=[], editingBookId=null;
+function validChatURL(value){
+ try{const u=new URL(value);return u.protocol==='https:'&&u.hostname==='chatgpt.com'&&(/^\/c\/[^/]+\/?$/.test(u.pathname)||/^\/g\/[^/]+\/c\/[^/]+\/?$/.test(u.pathname))?u.href:null;}catch(e){return null;}
+}
+function loadBooks(){try{const data=JSON.parse(localStorage.getItem(BOOKS_KEY)||'[]');books=Array.isArray(data)?data.filter(b=>b&&typeof b.id==='string'&&typeof b.name==='string'&&validChatURL(b.url)):[];}catch(e){books=[];}renderBooks();}
+function storeBooks(){localStorage.setItem(BOOKS_KEY,JSON.stringify(books));}
+function currentBook(){return books.find(b=>b.id===$('bookSelect').value);}
+function renderBooks(){
+ const el=$('bookSelect');let selected='';try{selected=localStorage.getItem(SELECTED_BOOK_KEY)||'';}catch(e){}
+ const current=el.value||selected;el.replaceChildren();
+ if(!books.length){const o=document.createElement('option');o.value='';o.textContent='まだ本が登録されていません';el.append(o);}
+ books.forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.name;el.append(o);});
+ if(books.some(b=>b.id===current))el.value=current;
+ const available=!!currentBook();['openBook','editBook','deleteBook'].forEach(id=>$(id).disabled=!available);
+}
+function showBookEditor(edit){
+ const b=edit?currentBook():null;editingBookId=b?b.id:null;
+ $('bookName').value=b?b.name:'';$('bookUrl').value=b?b.url:'';
+ $('bookEditor').hidden=false;$('bookName').focus();
+}
+function hideBookEditor(){$('bookEditor').hidden=true;editingBookId=null;}
+function saveBookData(){
+ const name=$('bookName').value.trim(),url=validChatURL($('bookUrl').value.trim());
+ if(!name){alert('本のタイトルを入力してください');return;}
+ if(!url){alert('自分の既存チャットURL（chatgpt.com/c/... または chatgpt.com/g/.../c/...）を登録してください。共有リンクは使用しません。');return;}
+ const before=books.slice();const id=editingBookId||('book-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7));
+ const index=books.findIndex(b=>b.id===id);
+ if(index>=0)books[index]={id,name,url};else books.push({id,name,url});
+ try{storeBooks();localStorage.setItem(SELECTED_BOOK_KEY,id);$('bookSelect').value=id;hideBookEditor();renderBooks();msg('本ライブラリーに登録しました');}
+ catch(e){books=before;alert('登録情報を保存できませんでした: '+e.message);}
+}
+function deleteBookData(){const b=currentBook();if(!b||!confirm('「'+b.name+'」の登録を削除しますか？ ChatGPTのチャット自体は削除されません。'))return;const before=books.slice();books=books.filter(x=>x.id!==b.id);try{storeBooks();localStorage.removeItem(SELECTED_BOOK_KEY);renderBooks();msg('本の登録を削除しました');}catch(e){books=before;renderBooks();alert('削除できませんでした: '+e.message);}}
+async function openBookChat(){
+ const b=currentBook();if(!b)return;
+ const url=validChatURL(b.url);if(!url){alert('登録URLを確認してください');return;}
+ let copied=false;
+ try{await navigator.clipboard.writeText(READ_INSTRUCTION);copied=true;}catch(e){
+  const t=document.createElement('textarea');t.value=READ_INSTRUCTION;t.style.position='fixed';t.style.left='-9999px';document.body.append(t);t.select();try{copied=document.execCommand('copy');}catch(err){}t.remove();
+ }
+ if(!copied){alert('指示文をコピーできませんでした。ブラウザのコピー許可を確認してください。チャットは開きません。');return;}
+ try{localStorage.setItem(SELECTED_BOOK_KEY,b.id);}catch(e){}
+ window.location.assign(url);
+}
+$('bookSelect').onchange=()=>{try{localStorage.setItem(SELECTED_BOOK_KEY,$('bookSelect').value);}catch(e){}renderBooks();};
+$('addBook').onclick=()=>showBookEditor(false);
+$('editBook').onclick=()=>showBookEditor(true);
+$('deleteBook').onclick=deleteBookData;
+$('saveBook').onclick=saveBookData;
+$('cancelBook').onclick=hideBookEditor;
+$('openBook').onclick=openBookChat;
+loadBooks();
+
 let dbPromise;
 function openDB(){if(!window.indexedDB)return Promise.reject(new Error('端末内保存に非対応'));if(!dbPromise){dbPromise=new Promise((resolve,reject)=>{const q=indexedDB.open('reading-capture-v26',1);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains('session'))q.result.createObjectStore('session');};q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);}).catch(e=>{dbPromise=null;throw e;});}return dbPromise;}
 async function persist(blobs){const db=await openDB();return new Promise((resolve,reject)=>{const tx=db.transaction('session','readwrite');tx.objectStore('session').put(blobs,'photos');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('一時保存失敗'));tx.onabort=()=>reject(tx.error||new Error('一時保存中断'));});}
