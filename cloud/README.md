@@ -3,21 +3,22 @@
 既存のWebアプリと同じオリジン・パスで配布する。別オリジンのプレビューは端末の既存ライブラリー・一時画像を参照できない。iOS署名・TestFlightは使用しない。
 
 ## 書き込みと読み取り
-1. データ用Supabaseで先に既存ポリシー、Data API、Storageを点検し、data.sqlを1トランザクションで適用する。Googleログインを設定し、実際のアプリの正確なコールバックURLを許可する。管理者が本人と照合したauth.users.idをreading_private.ownerに1件だけ登録する。公開セルフ登録に権限は付かない。
-2. デプロイ時にcloud/config.jsonのurlとpublishableKeyをデータ側の公開可能設定で置換する。配布物には管理者鍵を含めない。リポジトリの既定設定では接続は無効。短時間の直接ログインで書き込み、期限切れは再認証。書籍名とローカル書籍IDを同期し、チャットURLは端末に保持する。インポートで再生成されたIDは別の本として扱う。
-3. 共通認証側にpermissions.sqlを一度適用する。reading_auth.ownerとallowed_clientには本人・登録済みコールバック・同意を確認したクライアントだけを個別登録する。既存ポケカの許可と自動連動しない。
-4. データ側にreader.tsをreading-readerとして配布する。別プロジェクト発行トークンを受ける場合はプラットフォームのverify_jwtを無効にし、関数内で固定の認証元に毎回再照会する。READING_ISSUER_URLとREADING_ISSUER_PUBLIC_KEYをサーバー設定に登録する。SUPABASE_SERVICE_ROLE_KEYはデータ側のサーバー内だけで使う。
-5. 共通MCPの稼働版を取得し、tools.tsを同梱して以下をserver.connectの前に追加する。既存のOAuth発見・Streamable HTTP・Google同意を利用する。READING_READER_URLは管理者が設定したデータ側の関数URL。登録と呼び出しの両時点で読書権限を確認する。
+B案では既存のカラダレポート用Supabase内に読書データを置く。プロジェクトの契約追加は不要。DB容量、画像保存容量、転送量は既存アプリと共用する。実機検証はまず画像保存オフで行う。
+
+1. 管理者が既存Storageポリシーと名前の衝突を確認し、data.sqlを一度だけ適用する。本人に対応する認証ユーザーをreading_private.ownerに1件登録する。直接ログイン時だけRLSで追記を許す。
+2. permissions.sqlは共通認証側に適用済み。再適用しない。shared-project.sqlで同一DBの読取関数を追加する。reading_auth.ownerとallowed_clientには本人・登録済みコールバック・同意を照合したクライアントだけを登録する。ポケカの追加・取消に自動連動しない。
+3. 既存共通MCPのリクエスト処理で、server.connectの直前に次の登録を追加する。tools.tsを同梱する。登録時と各照会時に読書権限を検証する。追加のEdge Functionや管理者鍵の配布は不要。更新は現行稼働版との差分を確認してから行う。
 
 ```ts
 import { attachReading } from './tools.ts';
 // Inside the authenticated request handler:
-await attachReading(server, auth, Deno.env.get('READING_READER_URL'),
-  () => db.rpc('reading_mcp_allowed'));
+try { await attachReading(server, db); }
+catch { /* A reading catalog failure must leave existing tools available. */ }
 ```
 
-6. 試験は架空の書籍・自作画像を使い、Google本人以外の拒否、OAuthトークンでの直接書込拒否、Storage匿名取得拒否、各クライアントのtools/listと同じメモ・進捗の読み出しを照合する。ログには本文、個人のメモ、トークン、署名URLを残さない。新しいAIに共通入口を許可する場合、既存の健康ツールも列挙され得るため、そのクライアントの既存データへの権限を個別に確認する。
-7. 読書の利用停止はreading_auth.allowed_clientの該当行を無効化する（現設計では削除）。読書の書き込み停止はデータ側の所有者登録解除で行う。障害時は読み取り登録部分を外すかREADING_READER_URLを解除し、既存共通MCPの稼働版に戻す。復旧のためにデータやバケットを削除する必要はない。
+4. 既存Google認証のリダイレクト許可リストに元のアプリの正確なコールバックURLを追加する。既存エントリーを維持する。cloud/config.jsonのurlとpublishableKeyは配布時に公開可能設定で置換する。リポジトリの既定値は無効。期限切れは再認証する。
+5. 同じ検証書籍・本人入力のページ・メモを各AIから照合する。未許可クライアント、取消後、直接APIの書込、匿名での画像取得を個別に試験する。新しいChatGPT接続では共通入口から既存健康ツールを参照できる可能性があるため、他ツールへの権限を先に点検する。
+6. 特定AIの停止は読書用許可表の該当行を解除する。書込停止は読書用の所有者登録を解除する。共通MCPに問題があれば読書登録部分を除いて前の版に戻す。読書テーブルや画像の削除は必要ない。
 
 ## 記録単位
 同期ボタン1回で選択中の本・最終既読ページ・自分のメモ・撮影セットの情報を記録。内容を変えた再登録は新しいスナップショット。完全に同じ入力の再試行は同一ID。「別の読書セッションを始める」で同じ内容の再読を区別できる。時刻は登録時刻。画像に印刷されたページ番号・撮影日時・読書時間は推定しない。別の本へ切り替えたら入力範囲と撮影セットを確認する。
