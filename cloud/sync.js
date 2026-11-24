@@ -10,7 +10,18 @@ let token = sessionStorage.getItem(prefix + 'token');
 const callback = new URL(location.pathname, location.origin).href;
 
 async function config() {
-  if (!settings) settings = await (await fetch(new URL('./config.json', import.meta.url), {cache:'no-store'})).json();
+  if (!settings) {
+    const local = await (await fetch(new URL('./config.json', import.meta.url), {cache:'no-store'})).json();
+    if (local.publicConfig) {
+      const response = await fetch(local.publicConfig, {cache:'no-store',redirect:'error',credentials:'omit'});
+      if (!response.ok) throw Error('クラウド接続設定を取得できません。');
+      const published = await response.json();
+      if (published.url !== local.url || !published.publishableKey?.startsWith('sb_publishable_')) {
+        throw Error('クラウド接続設定を確認してください。');
+      }
+      settings = published;
+    } else settings = local;
+  }
   if (!/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(settings.url) || !settings.publishableKey) {
     throw Error('この配布先のクラウド接続は準備中です。');
   }
