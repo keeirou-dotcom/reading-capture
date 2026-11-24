@@ -27,3 +27,6 @@ catch { /* A reading catalog failure must leave existing tools available. */ }
 
 ## 壁打ちの再開
 「最後に読んだページと前回の自分のメモを確認して、保留していた問いを一つ返して」で開始できる。別のAIでも同じ本のIDでget_reading_progressとget_reading_sessionsを読み合わせる。AIとの対話後に残す本人の気づきはpersonal-ai-knowledgeの読書索引・既存insightsを照合し、差分だけDraft PRにする。会話や書籍本文の自動転記、MCPからの書き込みは行わない。
+
+## 2026-11-25 追補：進捗取得のメモ整合性
+既存本番の `public.reading_lookup` を CREATE OR REPLACE で更新し、get_reading_progress でも該当セッションの note を返す。最新のページ付き記録を選ぶ従来仕様は維持。権限・既存データは変更しない。既存記録1件でセッションメモ・ページ一致をDBで確認済み。匿名RPC・直接取得の拒否権限、許可3件、非公開Storageを確認。実AIからの再照合と画像同期実機試験は未実施。適用済み環境で data.sql 全体を再実行しない。
