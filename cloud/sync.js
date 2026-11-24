@@ -8,6 +8,44 @@ const encoder = new TextEncoder();
 let settings;
 let token = null, expiry = 0, refreshing, activeBook;
 let busyCloud = false;
+let autoEnabled=false, autoGeneration=0, autoRunning=false, autoController=null;
+const prepared=new WeakMap();
+const hashCache=new WeakMap();
+function hashBlob(blob){if(!hashCache.has(blob))hashCache.set(blob,blob.arrayBuffer().then(digest).then(hex));return hashCache.get(blob);}
+function autoStatus(message){element('autoUploadStatus').textContent=message;}
+function stopAuto(){autoEnabled=false;autoGeneration++;autoController?.abort();element('autoUpload').checked=false;autoStatus('自動送信は停止中です。送信済み画像は非公開Storageに残ります。');}
+async function uploadImage(blob,hash,signal){
+  if(blob.type!=='image/jpeg'||blob.size>8*1024*1024)throw Error('画像保存はJPEG・1枚8 MiBまでです。');
+  const filename=hash+'.jpg';
+  const info=await request('/storage/v1/object/info/reading-captures/'+filename,{method:'GET',signal},[400,404,405]);
+  if(info.ok)return 'skipped';
+  const response=await request('/storage/v1/object/reading-captures/'+filename,{method:'POST',signal,headers:{'Content-Type':'image/jpeg','x-upsert':'false'},body:blob},[400,409]);
+  if(response.ok)return 'sent';
+  const failure=await response.json();
+  if(failure.error==='Duplicate'||failure.code==='Duplicate'||failure.message==='The resource already exists')return 'skipped';
+  throw Error('画像を登録できませんでした。再試行できます。');
+}
+async function pumpAuto(){
+  if(!autoEnabled||autoRunning||busyCloud||!element('includeImages').checked||!currentBook()||!token)return;
+  autoRunning=true;const generation=autoGeneration;
+  const controller=new AbortController();autoController=controller;
+  try{
+    while(autoEnabled&&generation===autoGeneration&&!busyCloud){
+      const pending=photos.map(p=>p.blob).filter(b=>!prepared.has(b)).slice(0,2);
+      if(!pending.length)break;
+      const results=await Promise.allSettled(pending.map(async blob=>{
+        const hash=await hashBlob(blob);
+        if(controller.signal.aborted||!autoEnabled||generation!==autoGeneration)return;
+        await uploadImage(blob,hash,controller.signal);
+        if(!controller.signal.aborted)prepared.set(blob,true);
+      }));
+      if(generation!==autoGeneration)break;
+      const failed=results.some(r=>r.status==='rejected');
+      autoStatus('先行保存 '+photos.filter(p=>prepared.has(p.blob)).length+' / '+photos.length+' 枚'+(failed?'。未送信分は同期ボタンで再試行できます。':''));
+      if(failed)break;
+    }
+  }finally{autoRunning=false;if(autoController===controller)autoController=null;}
+}
 function saveDraft() {
   if (!activeBook) return;
   localStorage.setItem(prefix+'fields:'+activeBook,JSON.stringify({page:element('readPage').value,note:element('readNote').value,images:element('includeImages').checked}));
@@ -74,6 +112,7 @@ async function config() {
 async function request(path, init, allowed = []) {
   if (!path.startsWith('/auth/v1/token')) await ensureSession();
   const {url, publishableKey} = await config();
+  if(init.signal?.aborted)throw new DOMException('Cancelled','AbortError');
   const response = await fetch(url + path, {...init, redirect:'error', cache:'no-store', headers:{
     apikey:publishableKey, ...(token ? {Authorization:'Bearer ' + token} : {}), ...init.headers
   }});
@@ -125,7 +164,7 @@ async function sync() {
   const hashes = [];
   for (const blob of captured) {
     if (withImages && (blob.type !== 'image/jpeg' || blob.size > 8*1024*1024)) throw Error('画像保存はJPEG・1枚8 MiBまでです。');
-    hashes.push(hex(await digest(await blob.arrayBuffer())));
+    hashes.push(await hashBlob(blob));
   }
   const payload = {book_id:book.id, title:book.name, last_page:page, note, capture_count:captured.length,
     image_hashes:withImages ? hashes : []};
@@ -140,17 +179,9 @@ async function sync() {
   if (withImages) {
     let completed=0;
     const upload=async(blob,i)=>{
-      const filename=hashes[i]+'.jpg';
-      // Server-confirmed existence only; never trust a local upload flag.
-      const info=await request('/storage/v1/object/info/reading-captures/'+filename,{method:'GET'},[400,404,405]);
-      if(info.ok){skipped++;status('画像確認中 '+(++completed)+' / '+captured.length+' 枚（再送省略 '+skipped+'）');return;}
-      const path = '/storage/v1/object/reading-captures/' + filename;
-      const response = await request(path,{method:'POST',headers:{'Content-Type':'image/jpeg','x-upsert':'false'},body:blob},[400,409]);
-      if (!response.ok) {
-        const failure = await response.json();
-        if (failure.error !== 'Duplicate' && failure.code !== 'Duplicate' && failure.message !== 'The resource already exists') throw Error('画像を登録できませんでした。再試行できます。');
-      }
-      if(response.ok)sent++;else skipped++;
+      const result=await uploadImage(blob,hashes[i]);
+      if(result==='sent')sent++;else skipped++;
+      prepared.set(blob,true);
       status('画像同期中 '+(++completed)+' / '+captured.length+' 枚（再送省略 '+skipped+'）');
     };
     for(let i=0;i<captured.length;i+=3){
@@ -169,6 +200,8 @@ function bind(id, action) {
   element(id).onclick = async () => {
     if(busyCloud)return;
     busyCloud=true;element(id).disabled = true;
+    if(id==='cloudSync' && autoRunning){autoGeneration++;autoController?.abort();}
+    if(id!=='cloudSync')stopAuto();
     try { await action(); } catch (error) {status(error.message);}
     finally {busyCloud=false;element(id).disabled = false; element('cloudLogout').hidden = !token;}
   };
@@ -192,7 +225,16 @@ bind('cloudLogout', async () => {
 });
 restoreDraft();
 for(const id of ['readPage','readNote','includeImages'])element(id).addEventListener('input',saveDraft);
-element('bookSelect').addEventListener('change',restoreDraft);
+element('bookSelect').addEventListener('change',()=>{stopAuto();restoreDraft();});
+element('includeImages').addEventListener('change',()=>{if(!element('includeImages').checked)stopAuto();});
+element('autoUpload').addEventListener('change',()=>{
+  if(!element('autoUpload').checked){stopAuto();return;}
+  if(!element('includeImages').checked||!currentBook()||!token){stopAuto();autoStatus('先に本を選択し、本人認証と画像保存のチェックを済ませてください。');return;}
+  autoEnabled=true;autoGeneration++;autoStatus('撮影中の先行保存を開始します。');void pumpAuto();
+});
+window.addEventListener('reading-photos-changed',()=>{void pumpAuto();});
+window.addEventListener('pagehide',stopAuto);
+window.addEventListener('storage',e=>{if(e.key===prefix+'session'&&!e.newValue)stopAuto();});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveDraft();});
 loadSession();
 busyCloud=true;
