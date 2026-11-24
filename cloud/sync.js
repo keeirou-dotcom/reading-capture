@@ -6,7 +6,51 @@ const hex = bytes => Array.from(bytes, x => x.toString(16).padStart(2, '0')).joi
 const base64url = bytes => btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replace(/=+$/, '');
 const encoder = new TextEncoder();
 let settings;
-let token = sessionStorage.getItem(prefix + 'token');
+let token = null, expiry = 0, refreshing, activeBook;
+let busyCloud = false;
+function saveDraft() {
+  if (!activeBook) return;
+  localStorage.setItem(prefix+'fields:'+activeBook,JSON.stringify({page:element('readPage').value,note:element('readNote').value,images:element('includeImages').checked}));
+}
+function restoreDraft() {
+  const id=currentBook()?.id;
+  if(id===activeBook)return;
+  saveDraft();activeBook=id;
+  let d={};try{d=JSON.parse(localStorage.getItem(prefix+'fields:'+id)||'{}');}catch{}
+  element('readPage').value=d.page||'';
+  element('readNote').value=d.note||'';
+  element('includeImages').checked=d.images===true;
+}
+function loadSession(){
+  let d=null;try{d=JSON.parse(localStorage.getItem(prefix+'session')||'null');}catch{}
+  token=d?.access_token||null;expiry=d?.expiry||0;return d;
+}
+function setSession(d){
+  if(!d.access_token||!d.refresh_token||!Number.isFinite(Number(d.expires_in)))throw Error('認証情報が不完全です。');
+  localStorage.setItem(prefix+'session',JSON.stringify({access_token:d.access_token,refresh_token:d.refresh_token,expiry:Date.now()+Number(d.expires_in)*1000}));
+  sessionStorage.removeItem(prefix+'token');loadSession();
+}
+function clearSession(){localStorage.removeItem(prefix+'session');sessionStorage.removeItem(prefix+'token');loadSession();}
+async function ensureSession(){
+  if(refreshing)return refreshing;
+  const d=loadSession();
+  if(d&&expiry>Date.now()+60000)return;
+  if(!d)throw Error('初回のGoogle認証をしてください。入力内容は保持されます。');
+  const refresh=async()=>{
+    const current=loadSession();
+    if(current&&expiry>Date.now()+60000)return;
+    if(!current)throw Error('Googleで再認証してください。');
+    const {url,publishableKey}=await config();
+    const r=await fetch(url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',redirect:'error',cache:'no-store',headers:{apikey:publishableKey,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:current.refresh_token})});
+    if(!r.ok){
+      if(r.status===400||r.status===401){if(loadSession()?.refresh_token===current.refresh_token)clearSession();throw Error('認証が失効しました。Googleで再認証してください。入力内容は保持されます。');}
+      throw Error('認証更新に失敗しました。再試行してください。');
+    }
+    setSession(await r.json());
+  };
+  refreshing=(navigator.locks?navigator.locks.request(prefix+'refresh',refresh):refresh()).finally(()=>{refreshing=null;});
+  return refreshing;
+}
 const callback = new URL(location.pathname, location.origin).href;
 
 async function config() {
@@ -28,6 +72,7 @@ async function config() {
   return settings;
 }
 async function request(path, init, allowed = []) {
+  if (!path.startsWith('/auth/v1/token')) await ensureSession();
   const {url, publishableKey} = await config();
   const response = await fetch(url + path, {...init, redirect:'error', cache:'no-store', headers:{
     apikey:publishableKey, ...(token ? {Authorization:'Bearer ' + token} : {}), ...init.headers
@@ -39,6 +84,7 @@ async function request(path, init, allowed = []) {
   return response;
 }
 async function login() {
+  restoreDraft();saveDraft();
   const {url} = await config();
   const verifier = base64url(crypto.getRandomValues(new Uint8Array(48)));
   sessionStorage.setItem(prefix + 'pkce', verifier);
@@ -57,14 +103,14 @@ async function finishLogin() {
   sessionStorage.removeItem(prefix + 'pkce');
   const response = await request('/auth/v1/token?grant_type=pkce', {method:'POST',
     headers:{'Content-Type':'application/json'}, body:JSON.stringify({auth_code:code, code_verifier:verifier})});
-  token = (await response.json()).access_token;
-  if (!token) throw Error('ログインを完了できませんでした。');
-  sessionStorage.setItem(prefix + 'token', token);
+  setSession(await response.json());
   status('本人認証が完了しました。');
 }
 async function sync() {
   await config();
-  if (!token) throw Error('先にGoogleで本人認証してください。');
+  restoreDraft();saveDraft();
+  await ensureSession();
+  const started=performance.now();
   const book = currentBook();
   if (!book) throw Error('本ライブラリーから本を選んでください。');
   const raw = element('readPage').value;
@@ -87,25 +133,32 @@ async function sync() {
   const id = hex(await digest(encoder.encode(JSON.stringify([draft,payload,hashes]))));
   // Identical snapshots are idempotent, even after reload or an interrupted request.
   if (withImages) {
-    for (const [i, blob] of captured.entries()) {
+    let completed=0;
+    const upload=async(blob,i)=>{
       const path = '/storage/v1/object/reading-captures/' + hashes[i] + '.jpg';
       const response = await request(path,{method:'POST',headers:{'Content-Type':'image/jpeg','x-upsert':'false'},body:blob},[400,409]);
       if (!response.ok) {
         const failure = await response.json();
         if (failure.error !== 'Duplicate' && failure.code !== 'Duplicate' && failure.message !== 'The resource already exists') throw Error('画像を登録できませんでした。再試行できます。');
       }
+      status('画像同期中 '+(++completed)+' / '+captured.length+' 枚');
+    };
+    for(let i=0;i<captured.length;i+=3){
+      const results=await Promise.allSettled(captured.slice(i,i+3).map((blob,j)=>upload(blob,i+j)));
+      const failed=results.find(r=>r.status==='rejected');if(failed)throw failed.reason;
     }
   }
   await request('/rest/v1/reading_entries?on_conflict=id',{method:'POST',
     headers:{'Content-Type':'application/json',Prefer:'resolution=ignore-duplicates,return=minimal'},
     body:JSON.stringify({id,...payload})});
-  status('「' + book.name + '」の読書記録を同期しました。撮影 ' + captured.length + ' 枚、画像保存 ' + payload.image_hashes.length + ' 枚。');
+  status('「' + book.name + '」の読書記録を同期しました。撮影 ' + captured.length + ' 枚、画像保存 ' + payload.image_hashes.length + ' 枚。所要 '+((performance.now()-started)/1000).toFixed(1)+' 秒。');
 }
 function bind(id, action) {
   element(id).onclick = async () => {
-    element(id).disabled = true;
+    if(busyCloud)return;
+    busyCloud=true;element(id).disabled = true;
     try { await action(); } catch (error) {status(error.message);}
-    finally {element(id).disabled = false; element('cloudLogout').hidden = !token;}
+    finally {busyCloud=false;element(id).disabled = false; element('cloudLogout').hidden = !token;}
   };
 }
 bind('newReading', async () => {
@@ -115,13 +168,20 @@ bind('newReading', async () => {
   element('readPage').value = '';
   element('readNote').value = '';
   element('includeImages').checked = false;
+  saveDraft();
   status('新しいセッションです。現在の撮影セットを確認してください。');
 });
 bind('cloudLogin', login);
 bind('cloudSync', sync);
 bind('cloudLogout', async () => {
   try { await request('/auth/v1/logout?scope=local', {method:'POST'}); }
-  finally {token = null; sessionStorage.removeItem(prefix+'token');}
+  finally {clearSession();}
   status('ログアウトしました。');
 });
-finishLogin().catch(error => status(error.message)).finally(() => {element('cloudLogout').hidden = !token;});
+restoreDraft();
+for(const id of ['readPage','readNote','includeImages'])element(id).addEventListener('input',saveDraft);
+element('bookSelect').addEventListener('change',restoreDraft);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveDraft();});
+loadSession();
+busyCloud=true;
+finishLogin().then(async()=>{if(token){await ensureSession();status('本人認証済みです。');}}).catch(error=>status(error.message)).finally(()=>{busyCloud=false;element('cloudLogout').hidden=!token;});
