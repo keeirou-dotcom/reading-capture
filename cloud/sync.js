@@ -8,12 +8,12 @@ const encoder = new TextEncoder();
 let settings;
 let token = null, expiry = 0, refreshing, activeBook;
 let busyCloud = false;
-let autoEnabled=false, autoGeneration=0, autoRunning=false, autoController=null;
+let autoEnabled=false, autoGeneration=0, autoRunning=false, autoController=null, autoBook=null;
 const prepared=new WeakMap();
 const hashCache=new WeakMap();
-function hashBlob(blob){if(!hashCache.has(blob))hashCache.set(blob,blob.arrayBuffer().then(digest).then(hex));return hashCache.get(blob);}
+function hashBlob(blob){if(!hashCache.has(blob))hashCache.set(blob,blob.arrayBuffer().then(digest).then(hex).catch(error=>{hashCache.delete(blob);throw error;}));return hashCache.get(blob);}
 function autoStatus(message){element('autoUploadStatus').textContent=message;}
-function stopAuto(){autoEnabled=false;autoGeneration++;autoController?.abort();element('autoUpload').checked=false;autoStatus('自動送信は停止中です。送信済み画像は非公開Storageに残ります。');}
+function stopAuto(){autoEnabled=false;autoBook=null;autoGeneration++;autoController?.abort();element('autoUpload').checked=false;autoStatus('自動送信は停止中です。送信済み画像は非公開Storageに残ります。');}
 async function uploadImage(blob,hash,signal){
   if(blob.type!=='image/jpeg'||blob.size>8*1024*1024)throw Error('画像保存はJPEG・1枚8 MiBまでです。');
   const filename=hash+'.jpg';
@@ -26,16 +26,18 @@ async function uploadImage(blob,hash,signal){
   throw Error('画像を登録できませんでした。再試行できます。');
 }
 async function pumpAuto(){
-  if(!autoEnabled||autoRunning||busyCloud||!element('includeImages').checked||!currentBook()||!token)return;
+  if(autoEnabled && (currentBook()?.id!==autoBook||!element('includeImages').checked)){stopAuto();return;}
+  if(!autoEnabled||autoRunning||busyCloud||!token)return;
   autoRunning=true;const generation=autoGeneration;
   const controller=new AbortController();autoController=controller;
   try{
     while(autoEnabled&&generation===autoGeneration&&!busyCloud){
+      if(currentBook()?.id!==autoBook||!element('includeImages').checked){stopAuto();break;}
       const pending=photos.map(p=>p.blob).filter(b=>!prepared.has(b)).slice(0,2);
       if(!pending.length)break;
       const results=await Promise.allSettled(pending.map(async blob=>{
         const hash=await hashBlob(blob);
-        if(controller.signal.aborted||!autoEnabled||generation!==autoGeneration)return;
+        if(controller.signal.aborted||!autoEnabled||generation!==autoGeneration||currentBook()?.id!==autoBook||!element('includeImages').checked||!photos.some(p=>p.blob===blob))return;
         await uploadImage(blob,hash,controller.signal);
         if(!controller.signal.aborted)prepared.set(blob,true);
       }));
@@ -230,7 +232,7 @@ element('includeImages').addEventListener('change',()=>{if(!element('includeImag
 element('autoUpload').addEventListener('change',()=>{
   if(!element('autoUpload').checked){stopAuto();return;}
   if(!element('includeImages').checked||!currentBook()||!token){stopAuto();autoStatus('先に本を選択し、本人認証と画像保存のチェックを済ませてください。');return;}
-  autoEnabled=true;autoGeneration++;autoStatus('撮影中の先行保存を開始します。');void pumpAuto();
+  autoEnabled=true;autoBook=currentBook().id;autoGeneration++;autoStatus('撮影中の先行保存を開始します。');void pumpAuto();
 });
 window.addEventListener('reading-photos-changed',()=>{void pumpAuto();});
 window.addEventListener('pagehide',stopAuto);
