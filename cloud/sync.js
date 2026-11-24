@@ -107,10 +107,11 @@ async function finishLogin() {
   status('本人認証が完了しました。');
 }
 async function sync() {
+  const started=performance.now();
   await config();
   restoreDraft();saveDraft();
   await ensureSession();
-  const started=performance.now();
+  const authMs=performance.now()-started;
   const book = currentBook();
   if (!book) throw Error('本ライブラリーから本を選んでください。');
   const raw = element('readPage').value;
@@ -120,6 +121,7 @@ async function sync() {
   const captured = photos.map(photo => photo.blob);
   const withImages = element('includeImages').checked;
   if (!captured.length && !note && !page) throw Error('ページ、メモ、撮影画像のいずれかが必要です。');
+  const hashStarted=performance.now();
   const hashes = [];
   for (const blob of captured) {
     if (withImages && (blob.type !== 'image/jpeg' || blob.size > 8*1024*1024)) throw Error('画像保存はJPEG・1枚8 MiBまでです。');
@@ -132,26 +134,36 @@ async function sync() {
   if (!draft) { draft = crypto.randomUUID(); localStorage.setItem(draftKey, draft); }
   const id = hex(await digest(encoder.encode(JSON.stringify([draft,payload,hashes]))));
   // Identical snapshots are idempotent, even after reload or an interrupted request.
+  const hashMs=performance.now()-hashStarted;
+  const uploadStarted=performance.now();
+  let skipped=0, sent=0;
   if (withImages) {
     let completed=0;
     const upload=async(blob,i)=>{
-      const path = '/storage/v1/object/reading-captures/' + hashes[i] + '.jpg';
+      const filename=hashes[i]+'.jpg';
+      // Server-confirmed existence only; never trust a local upload flag.
+      const info=await request('/storage/v1/object/info/reading-captures/'+filename,{method:'GET'},[400,404,405]);
+      if(info.ok){skipped++;status('画像確認中 '+(++completed)+' / '+captured.length+' 枚（再送省略 '+skipped+'）');return;}
+      const path = '/storage/v1/object/reading-captures/' + filename;
       const response = await request(path,{method:'POST',headers:{'Content-Type':'image/jpeg','x-upsert':'false'},body:blob},[400,409]);
       if (!response.ok) {
         const failure = await response.json();
         if (failure.error !== 'Duplicate' && failure.code !== 'Duplicate' && failure.message !== 'The resource already exists') throw Error('画像を登録できませんでした。再試行できます。');
       }
-      status('画像同期中 '+(++completed)+' / '+captured.length+' 枚');
+      if(response.ok)sent++;else skipped++;
+      status('画像同期中 '+(++completed)+' / '+captured.length+' 枚（再送省略 '+skipped+'）');
     };
     for(let i=0;i<captured.length;i+=3){
       const results=await Promise.allSettled(captured.slice(i,i+3).map((blob,j)=>upload(blob,i+j)));
       const failed=results.find(r=>r.status==='rejected');if(failed)throw failed.reason;
     }
   }
+  const uploadMs=performance.now()-uploadStarted;
+  const recordStarted=performance.now();
   await request('/rest/v1/reading_entries?on_conflict=id',{method:'POST',
     headers:{'Content-Type':'application/json',Prefer:'resolution=ignore-duplicates,return=minimal'},
     body:JSON.stringify({id,...payload})});
-  status('「' + book.name + '」の読書記録を同期しました。撮影 ' + captured.length + ' 枚、画像保存 ' + payload.image_hashes.length + ' 枚。所要 '+((performance.now()-started)/1000).toFixed(1)+' 秒。');
+  status('「' + book.name + '」の読書記録を同期しました。撮影 ' + captured.length + ' 枚、画像保存 ' + payload.image_hashes.length + ' 枚。所要 '+((performance.now()-started)/1000).toFixed(1)+' 秒。画像送信 '+sent+' 枚、再送省略 '+skipped+' 枚。内訳：認証・設定 '+(authMs/1000).toFixed(1)+'秒、画像識別 '+(hashMs/1000).toFixed(1)+'秒、画像確認・送信 '+(uploadMs/1000).toFixed(1)+'秒、記録登録 '+((performance.now()-recordStarted)/1000).toFixed(1)+'秒。');
 }
 function bind(id, action) {
   element(id).onclick = async () => {
