@@ -68,7 +68,7 @@ begin
   elsif tool in ('get_reading_sessions','get_recent_captures','search_reading_notes','get_reading_progress') then
     select jsonb_agg(to_jsonb(s) order by s.registered_at desc,s.id desc) into records from (
       select e.id,e.book_id,e.title,e.registered_at,e.last_page,
-        case when tool in ('get_reading_sessions','search_reading_notes') then e.note end as note,
+        case when tool in ('get_reading_sessions','search_reading_notes','get_reading_progress') then e.note end as note,
         e.capture_count,cardinality(e.image_hashes) as stored_images
       from public.reading_entries e join reading_private.owner o on e.owner_id=o.user_id
       where (book is null or e.book_id=book)
