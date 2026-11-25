@@ -1,3 +1,4 @@
+import { syntheticImage } from './image-probe.ts';
 import { McpServer } from 'npm:@modelcontextprotocol/sdk@1.25.3/server/mcp.js';
 import { z } from 'npm:zod@3.25.76';
 
@@ -24,4 +25,10 @@ export async function attachReading(server:McpServer, db:ReadingClient) {
   server.registerTool('get_reading_sessions',{description:'読書記録と本人のメモ。登録時刻順',inputSchema:{book_id:book.optional(),...paging},annotations},args=>read('get_reading_sessions',args));
   server.registerTool('get_recent_captures',{description:'撮影セットの登録履歴と枚数。画像本体は含みません',inputSchema:{book_id:book.optional(),...paging},annotations},args=>read('get_recent_captures',args));
   server.registerTool('search_reading_notes',{description:'本人のメモを部分一致で検索',inputSchema:{term:z.string().trim().min(1).max(120),book_id:book.optional(),...paging},annotations},args=>read('search_reading_notes',args));
+  server.registerTool('test_reading_image',{description:'画像認識の互換性試験。個人データを含まない合成PNG画像のみを返す。数字と色は画像内だけに含まれる。',annotations:{...annotations,idempotentHint:false}},async()=>{
+    const {data:permitted,error}=await db.rpc('reading_mcp_allowed');
+    if(error||permitted!==true)return {isError:true,content:[{type:'text' as const,text:'読書用の許可がありません。'}]};
+    try{return {content:[{type:'image' as const,data:await syntheticImage(),mimeType:'image/png'}]};}
+    catch{return {isError:true,content:[{type:'text' as const,text:'テスト画像を生成できませんでした。'}]};}
+  });
 }
