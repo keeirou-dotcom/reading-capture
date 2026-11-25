@@ -31,4 +31,9 @@ export async function attachReading(server:McpServer, db:ReadingClient) {
     try{return {content:[{type:'image' as const,data:await syntheticImage(),mimeType:'image/png'}]};}
     catch{return {isError:true,content:[{type:'text' as const,text:'テスト画像を生成できませんでした。'}]};}
   });
+  server.registerTool('test_reading_image_url',{description:'Gemini等の画像URL取得互換性試験。個人データを含まない合成PNGへの5分間のテストURLのみ返す。画像の答えは含まない。',annotations:{...annotations,idempotentHint:false}},async()=>{
+    const {data:permitted,error}=await db.rpc('reading_mcp_allowed');
+    if(error||permitted!==true)return {isError:true,content:[{type:'text' as const,text:'読書用の許可がありません。'}]};
+    return {content:[{type:'text' as const,text:JSON.stringify({url:'https://tbxakwubcfkjeaeldmro.supabase.co/functions/v1/reading-image-probe?expires='+String(Date.now()+300000),mime_type:'image/png',expires_in_seconds:300,synthetic_only:true})}]};
+  });
 }
